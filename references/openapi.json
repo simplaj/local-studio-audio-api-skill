@@ -1,0 +1,254 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Local Studio Audio API",
+    "version": "1.0.0",
+    "description": "API for the ElevenLabs and MiniMax audio workbench. Unless an operation is marked public, authenticate using the same secret as the website login."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [
+    { "BearerLoginSecret": [] },
+    { "LoginSecretHeader": [] },
+    { "BrowserSession": [] }
+  ],
+  "paths": {
+    "/api/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "Get this API specification",
+        "security": [],
+        "responses": { "200": { "description": "OpenAPI JSON" } }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Get public service and provider configuration status",
+        "security": [],
+        "responses": { "200": { "description": "Health status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } } }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "getAuthStatus",
+        "summary": "Check whether the current request is authenticated",
+        "security": [],
+        "responses": { "200": { "description": "Authentication state", "content": { "application/json": { "schema": { "type": "object", "properties": { "authenticated": { "type": "boolean" } }, "required": ["authenticated"] } } } } }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Create a browser session using the website login secret",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["password"], "properties": { "password": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Authenticated and sets an HttpOnly browser session cookie" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "Clear the browser session cookie",
+        "security": [],
+        "responses": { "200": { "description": "Session cookie cleared" } }
+      }
+    },
+    "/api/dictionary": {
+      "get": {
+        "operationId": "getDictionary",
+        "summary": "Read pronunciation dictionary",
+        "responses": { "200": { "description": "Dictionary object" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      },
+      "put": {
+        "operationId": "putDictionary",
+        "summary": "Save pronunciation dictionary",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DictionaryUpdate" } } } },
+        "responses": { "200": { "description": "Saved dictionary" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/voices": {
+      "get": {
+        "operationId": "getVoices",
+        "summary": "List supported ElevenLabs voice(s)",
+        "responses": { "200": { "description": "Voice list" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "operationId": "uploadDocuments",
+        "summary": "Upload and extract supported documents",
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "documents": { "type": "array", "items": { "type": "string", "format": "binary" } } }, "required": ["documents"] } } } },
+        "responses": { "200": { "description": "Extracted document text" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/synthesize": {
+      "post": {
+        "operationId": "synthesizeElevenLabs",
+        "summary": "Synthesize one text with ElevenLabs",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ElevenSynthesisRequest" } } } },
+        "responses": { "200": { "description": "Generated audio metadata" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/synthesize-batch": {
+      "post": {
+        "operationId": "synthesizeElevenLabsBatch",
+        "summary": "Start ElevenLabs batch synthesis",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ElevenBatchRequest" } } } },
+        "responses": { "202": { "description": "Queued job", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AcceptedJob" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/jobs/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "operationId": "getElevenLabsJob",
+        "summary": "Get ElevenLabs batch job status",
+        "responses": { "200": { "description": "Job status" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/jobs/{id}/events": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "operationId": "streamElevenLabsJob",
+        "summary": "Stream ElevenLabs batch progress as Server-Sent Events",
+        "responses": { "200": { "description": "SSE stream of job snapshots", "content": { "text/event-stream": { "schema": { "type": "string" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/history": {
+      "get": {
+        "operationId": "getHistory",
+        "summary": "List saved batch jobs",
+        "responses": { "200": { "description": "Saved job list" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/history/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "operationId": "getHistoryRecord",
+        "summary": "Get saved job including its source text",
+        "responses": { "200": { "description": "Job and document details" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/download/{id}": {
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }, { "name": "extension", "in": "query", "required": false, "schema": { "type": "string", "enum": ["mp3", "pcm", "flac", "wav", "pcmu_raw", "pcmu_wav", "opus"] }, "description": "Optional exact generated-audio file extension; when omitted, the server searches supported formats." }, { "name": "filename", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Suggested download filename only; not an authentication credential." }],
+      "get": {
+        "operationId": "downloadAudio",
+        "summary": "Download one generated audio file",
+        "responses": { "200": { "description": "Audio file", "content": { "audio/mpeg": { "schema": { "type": "string", "format": "binary" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/download-batch": {
+      "post": {
+        "operationId": "downloadAudioBatch",
+        "summary": "Download selected ElevenLabs audio as a ZIP archive",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BatchDownloadRequest" } } } },
+        "responses": { "200": { "description": "ZIP archive", "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/minimax/clone-upload": {
+      "post": {
+        "operationId": "uploadMiniMaxVoiceSample",
+        "summary": "Upload a voice sample for MiniMax cloning",
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "properties": { "file": { "type": "string", "format": "binary" } }, "required": ["file"] } } } },
+        "responses": { "200": { "description": "MiniMax upload result, including file ID" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/voice-clone": {
+      "post": {
+        "operationId": "cloneMiniMaxVoice",
+        "summary": "Create a MiniMax custom voice",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MiniMaxCloneRequest" } } } },
+        "responses": { "200": { "description": "MiniMax voice clone result" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/synthesize": {
+      "post": {
+        "operationId": "synthesizeMiniMax",
+        "summary": "Submit one MiniMax synthesis task",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MiniMaxSynthesisRequest" } } } },
+        "responses": { "200": { "description": "MiniMax asynchronous task submission response" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/tasks/{taskId}": {
+      "parameters": [{ "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "operationId": "getMiniMaxSynthesisTask",
+        "summary": "Query a single MiniMax synthesis task",
+        "responses": { "200": { "description": "MiniMax task status; successful results include an audio download URL" }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/tasks/{taskId}/audio": {
+      "parameters": [{ "name": "taskId", "in": "path", "required": true, "schema": { "type": "string" } }, { "name": "file_id", "in": "query", "required": true, "schema": { "type": "integer", "minimum": 1 }, "description": "Must match the file_id returned by the successful MiniMax task query." }, { "name": "format", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Optional output format used for the download filename/content type." }],
+      "get": {
+        "operationId": "downloadMiniMaxTaskAudio",
+        "summary": "Fetch generated audio from a completed MiniMax task",
+        "responses": { "200": { "description": "Generated audio file", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "409": { "description": "Task is not complete or file_id does not match the task result" }, "502": { "$ref": "#/components/responses/ProviderError" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/synthesize-batch": {
+      "post": {
+        "operationId": "synthesizeMiniMaxBatch",
+        "summary": "Start MiniMax batch synthesis",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MiniMaxBatchRequest" } } } },
+        "responses": { "202": { "description": "Queued job", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AcceptedJob" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "503": { "$ref": "#/components/responses/ProviderNotConfigured" } }
+      }
+    },
+    "/api/minimax/jobs/{jobId}": {
+      "parameters": [{ "$ref": "#/components/parameters/JobId" }],
+      "get": {
+        "operationId": "getMiniMaxJob",
+        "summary": "Get MiniMax batch job status",
+        "responses": { "200": { "description": "Job status including per-document results" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/minimax/jobs/{jobId}/events": {
+      "parameters": [{ "$ref": "#/components/parameters/JobId" }],
+      "get": {
+        "operationId": "streamMiniMaxJob",
+        "summary": "Stream MiniMax batch progress as Server-Sent Events",
+        "responses": { "200": { "description": "SSE stream of job snapshots", "content": { "text/event-stream": { "schema": { "type": "string" } } } }, "401": { "$ref": "#/components/responses/Unauthorized" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/minimax/download-batch": {
+      "post": {
+        "operationId": "downloadMiniMaxBatch",
+        "summary": "Download selected MiniMax audio as a ZIP archive",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BatchDownloadRequest" } } } },
+        "responses": { "200": { "description": "ZIP archive", "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerLoginSecret": { "type": "http", "scheme": "bearer", "description": "The same secret used to log in to the website." },
+      "LoginSecretHeader": { "type": "apiKey", "in": "header", "name": "X-API-Key", "description": "The same secret used to log in to the website." },
+      "BrowserSession": { "type": "apiKey", "in": "cookie", "name": "local_studio_session", "description": "HttpOnly browser login session." }
+    },
+    "parameters": {
+      "JobId": { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Missing or invalid login secret", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "BadRequest": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Job or file not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "ProviderError": { "description": "Provider request failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "ProviderNotConfigured": { "description": "Provider key is not configured on this server", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    },
+    "schemas": {
+      "Error": { "type": "object", "properties": { "error": { "type": "string" }, "authenticated": { "type": "boolean" } }, "required": ["error"] },
+      "Health": { "type": "object", "properties": { "ok": { "type": "boolean" }, "elevenlabsConfigured": { "type": "boolean" }, "minimaxConfigured": { "type": "boolean" }, "ffmpeg": { "type": "boolean" } }, "required": ["ok", "elevenlabsConfigured", "minimaxConfigured", "ffmpeg"] },
+      "Rule": { "type": "object", "required": ["string_to_replace", "alias"], "properties": { "string_to_replace": { "type": "string" }, "alias": { "type": "string" }, "type": { "type": "string", "enum": ["alias", "phoneme"] } } },
+      "DictionaryUpdate": { "type": "object", "properties": { "rules": { "type": "array", "items": { "$ref": "#/components/schemas/Rule" } }, "rules_english": { "type": "array", "items": { "$ref": "#/components/schemas/Rule" } }, "rules_chinese": { "type": "array", "items": { "$ref": "#/components/schemas/Rule" } } }, "description": "Send rules, or send one or both language-specific arrays." },
+      "Document": { "type": "object", "required": ["text"], "properties": { "documentId": { "type": "string" }, "filename": { "type": "string" }, "text": { "type": "string" } } },
+      "ElevenVoiceSettings": { "type": "object", "properties": { "stability": { "type": "number", "minimum": 0, "maximum": 1 }, "similarity_boost": { "type": "number", "minimum": 0, "maximum": 1 }, "style": { "type": "number", "minimum": 0, "maximum": 1 }, "use_speaker_boost": { "type": "boolean" }, "speed": { "type": "number", "minimum": 0.7, "maximum": 1.2 } } },
+      "ElevenSynthesisRequest": { "type": "object", "required": ["text"], "properties": { "text": { "type": "string" }, "filename": { "type": "string" }, "voice_id": { "type": "string" }, "model_id": { "type": "string", "enum": ["eleven_multilingual_v2", "eleven_v3", "eleven_flash_v2_5"] }, "voice_settings": { "$ref": "#/components/schemas/ElevenVoiceSettings" }, "output_format": { "type": "string", "enum": ["mp3_44100_128", "mp3_44100_192", "mp3_22050_32", "pcm_16000"] }, "text_normalization": { "type": "string", "enum": ["auto", "on", "off"] }, "apply_dictionary": { "type": "boolean" }, "normalize": { "type": "boolean" } } },
+      "ElevenBatchRequest": { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Document" }, "minItems": 1 }, "voice_id": { "type": "string" }, "model_id": { "type": "string", "enum": ["eleven_multilingual_v2", "eleven_v3", "eleven_flash_v2_5"] }, "voice_settings": { "$ref": "#/components/schemas/ElevenVoiceSettings" }, "output_format": { "type": "string", "enum": ["mp3_44100_128", "mp3_44100_192", "mp3_22050_32", "pcm_16000"] }, "text_normalization": { "type": "string", "enum": ["auto", "on", "off"] }, "apply_dictionary": { "type": "boolean" }, "normalize": { "type": "boolean" } } },
+      "MiniMaxVoiceSettings": { "type": "object", "properties": { "speed": { "type": "number", "minimum": 0.5, "maximum": 2 }, "vol": { "type": "number", "minimum": 0, "maximum": 10 }, "pitch": { "type": "number", "minimum": -12, "maximum": 12 }, "emotion": { "type": "string", "enum": ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm", "fluent", "whisper"] } } },
+      "MiniMaxAudioSettings": { "type": "object", "properties": { "format": { "type": "string", "enum": ["mp3", "pcm", "flac", "wav", "pcmu_raw", "pcmu_wav", "opus"] }, "sample_rate": { "type": "integer", "enum": [8000, 16000, 22050, 24000, 32000, 44100] }, "bitrate": { "type": "integer", "enum": [32000, 64000, 128000, 256000] }, "channel": { "type": "integer", "enum": [1, 2] } } },
+      "MiniMaxSynthesisRequest": { "type": "object", "required": ["text"], "properties": { "text": { "type": "string" }, "voice_id": { "type": "string" }, "model": { "type": "string" }, "voice_setting": { "$ref": "#/components/schemas/MiniMaxVoiceSettings" }, "audio_setting": { "$ref": "#/components/schemas/MiniMaxAudioSettings" }, "language_boost": { "type": "string" }, "text_normalization": { "type": "boolean" }, "latex_read": { "type": "boolean" }, "subtitle_enable": { "type": "boolean" }, "speed": { "type": "number" }, "vol": { "type": "number" }, "pitch": { "type": "number" }, "emotion": { "type": "string" }, "format": { "type": "string" }, "sample_rate": { "type": "integer" }, "bitrate": { "type": "integer" }, "channel": { "type": "integer" } } },
+      "MiniMaxCloneRequest": { "type": "object", "required": ["file_id", "voice_id"], "properties": { "file_id": { "type": "integer" }, "voice_id": { "type": "string", "minLength": 8, "maxLength": 256 }, "text": { "type": "string" }, "model": { "type": "string" }, "need_noise_reduction": { "type": "boolean" }, "need_volume_normalization": { "type": "boolean" } } },
+      "MiniMaxBatchRequest": { "type": "object", "required": ["items", "voice_id"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Document" }, "minItems": 1 }, "voice_id": { "type": "string" }, "model": { "type": "string" }, "voice_setting": { "$ref": "#/components/schemas/MiniMaxVoiceSettings" }, "audio_setting": { "$ref": "#/components/schemas/MiniMaxAudioSettings" }, "language_boost": { "type": "string" }, "text_normalization": { "type": "boolean" }, "latex_read": { "type": "boolean" }, "subtitle_enable": { "type": "boolean" }, "apply_dictionary": { "type": "boolean" } } },
+      "BatchDownloadRequest": { "type": "object", "properties": { "files": { "type": "array", "items": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string", "format": "uuid" }, "filename": { "type": "string" } } } }, "ids": { "type": "array", "items": { "type": "string", "format": "uuid" } } } },
+      "AcceptedJob": { "type": "object", "required": ["jobId", "total"], "properties": { "jobId": { "type": "string" }, "total": { "type": "integer" } } }
+    }
+  }
+}
